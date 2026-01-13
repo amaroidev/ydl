@@ -73,9 +73,6 @@ urlInput.addEventListener('input', () => {
         const isChannel = await window.electronAPI.isChannelUrl(value);
         const isPlaylist = value.includes('list=') && !value.includes('v=');
         
-        // Show subtitle section for any valid video/playlist/channel
-        document.getElementById('subtitleSection').style.display = 'block';
-        
         if (isChannel) {
           selectedVideo = {
             url: value,
@@ -116,11 +113,9 @@ urlInput.addEventListener('input', () => {
           document.getElementById('selectedMeta').textContent = selectedVideo.author + (selectedVideo.durationString ? ` • ${selectedVideo.durationString}` : '');
           selectedVideoEl.style.display = 'block';
           
-          // Show trim options
+          // Update trim hint with video duration
           if (selectedVideo.duration > 0) {
-            document.getElementById('trimSection').style.display = 'block';
-            document.getElementById('trimEnd').max = selectedVideo.duration;
-            document.getElementById('trimEnd').placeholder = `End (max ${selectedVideo.durationString})`;
+            document.getElementById('trimHint').textContent = `Video duration: ${selectedVideo.durationString}. Format: minutes:seconds (e.g., 1:30)`;
           }
           
           downloadBtn.disabled = false;
@@ -308,12 +303,14 @@ window.clearSchedule = clearSchedule;
 // Trim toggle
 document.getElementById('trimToggle')?.addEventListener('change', (e) => {
   trimEnabled = e.target.checked;
-  document.getElementById('trimInputs').style.display = trimEnabled ? 'flex' : 'none';
+  document.getElementById('trimInputs').style.display = trimEnabled ? 'block' : 'none';
+  document.getElementById('trimOption')?.classList.toggle('active', trimEnabled);
 });
 
 // Subtitle toggle
 document.getElementById('subtitleToggle')?.addEventListener('change', (e) => {
-  document.getElementById('subtitleOptions').style.display = e.target.checked ? 'flex' : 'none';
+  document.getElementById('subtitleOptions').style.display = e.target.checked ? 'block' : 'none';
+  document.getElementById('subtitleOption')?.classList.toggle('active', e.target.checked);
 });
 
 // Playlist selection
@@ -678,11 +675,28 @@ function renderDownloads() {
       </div>
       <div class="info">
         <div class="title">${escapeHtml(d.title)}</div>
-        <div class="meta">
-          ${d.format} • ${d.type === 'audio' ? 'Audio' : 'Video'}
-          ${d.speed ? ` • ${d.speed}` : ''}
-          ${d.eta ? ` • ETA: ${d.eta}` : ''}
-        </div>
+        <div class="meta">${d.format} • ${d.type === 'audio' ? 'Audio' : 'Video'}</div>
+        ${(d.status === 'downloading' || d.status === 'starting') && (d.speed || d.eta) ? `
+          <div class="download-stats">
+            ${d.speed ? `
+              <div class="stat-item speed">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                </svg>
+                <span class="value">${d.speed}</span>
+              </div>
+            ` : ''}
+            ${d.eta ? `
+              <div class="stat-item eta">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>
+                </svg>
+                <span class="label">ETA:</span>
+                <span class="value">${d.eta}</span>
+              </div>
+            ` : ''}
+          </div>
+        ` : ''}
       </div>
       ${d.status === 'downloading' || d.status === 'starting' || d.status === 'paused' ? `
         <div class="progress-section">

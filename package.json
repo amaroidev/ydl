@@ -1,6 +1,6 @@
 {
   "name": "roitube",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "A powerful YouTube downloader by roidev",
   "main": "src/main/main.js",
   "author": "roidev",
@@ -47,7 +47,7 @@
       "shortcutName": "RoiTube"
     },
     "portable": {
-      "artifactName": "RoiTube-Portable.exe"
+      "artifactName": "RoiTube.exe"
     }
   },
   "keywords": [
