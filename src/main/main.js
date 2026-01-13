@@ -670,25 +670,42 @@ ipcMain.handle('start-download', async (event, options) => {
       }
     }
     
-    // Trim options
-    if ((trimStart && trimStart > 0) || trimEnd) {
-      const startSec = trimStart || 0;
-      const endSec = trimEnd || '';
-      args.push('--download-sections', `*${startSec}-${endSec}`);
+    // Trim options - must use force_keyframes_at_cuts for proper audio sync
+    if ((trimStart && trimStart !== '0:00' && trimStart !== '0' && trimStart !== '') || (trimEnd && trimEnd !== '')) {
+      // Parse time strings to seconds
+      const parseTime = (t) => {
+        if (!t) return null;
+        const parts = t.toString().split(':').map(Number);
+        if (parts.length === 1) return parts[0];
+        if (parts.length === 2) return parts[0] * 60 + parts[1];
+        if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+        return null;
+      };
+      
+      const startSec = parseTime(trimStart) || 0;
+      const endSec = parseTime(trimEnd);
+      
+      if (startSec > 0 || endSec) {
+        const sectionStr = endSec ? `*${startSec}-${endSec}` : `*${startSec}-`;
+        args.push('--download-sections', sectionStr);
+        // Force keyframes at cuts ensures proper audio/video sync
+        args.push('--force-keyframes-at-cuts');
+      }
     }
     
     if (type === 'audio') {
       args.push('-x', '--audio-format', 'mp3', '--audio-quality', '0');
     } else {
+      // Use simpler format string that ensures audio is included
       let formatStr;
       if (format?.quality === '720p') {
-        formatStr = 'best[height<=720][ext=mp4]/bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720]';
+        formatStr = 'bestvideo[height<=720]+bestaudio/best[height<=720]';
       } else if (format?.quality === '480p') {
-        formatStr = 'best[height<=480][ext=mp4]/bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=480]+bestaudio/best[height<=480]';
+        formatStr = 'bestvideo[height<=480]+bestaudio/best[height<=480]';
       } else if (format?.quality === '1080p') {
-        formatStr = 'best[height<=1080][ext=mp4]/bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best[height<=1080]';
+        formatStr = 'bestvideo[height<=1080]+bestaudio/best[height<=1080]';
       } else {
-        formatStr = 'best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best';
+        formatStr = 'bestvideo+bestaudio/best';
       }
       args.push('-f', formatStr, '--merge-output-format', 'mp4');
     }
