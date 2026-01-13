@@ -1233,8 +1233,7 @@ body {
   padding: 15px;
   border-radius: 12px;
   border: 1px solid var(--border);
-  max-height: 300px;
-  overflow: hidden;
+  max-height: 400px;
   display: flex;
   flex-direction: column;
 }
@@ -1244,6 +1243,7 @@ body {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+  flex-shrink: 0;
 }
 
 .playlist-selection h4 {
@@ -1259,6 +1259,28 @@ body {
 .playlist-videos {
   overflow-y: auto;
   flex: 1;
+  min-height: 0;
+  max-height: 320px;
+  padding-right: 5px;
+}
+
+/* Custom scrollbar for playlist */
+.playlist-videos::-webkit-scrollbar {
+  width: 8px;
+}
+
+.playlist-videos::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+  border-radius: 4px;
+}
+
+.playlist-videos::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 4px;
+}
+
+.playlist-videos::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-hover);
 }
 
 .playlist-video-item {
