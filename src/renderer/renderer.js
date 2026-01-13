@@ -199,7 +199,6 @@ document.getElementById('clearSearchBtn')?.addEventListener('click', () => {
 document.getElementById('clearSelectedBtn')?.addEventListener('click', () => {
   selectedVideo = null;
   selectedVideoEl.style.display = 'none';
-  document.getElementById('trimSection').style.display = 'none';
   downloadBtn.disabled = true;
 });
 
@@ -400,10 +399,16 @@ async function startDownload() {
   selectedVideo = null;
   selectedVideoEl.style.display = 'none';
   searchResults.style.display = 'none';
-  document.getElementById('trimSection').style.display = 'none';
-  document.getElementById('subtitleSection').style.display = 'none';
   document.getElementById('playlistSelection').style.display = 'none';
   downloadBtn.disabled = true;
+  
+  // Reset option toggles but don't hide them (they're always visible)
+  document.getElementById('trimToggle').checked = false;
+  document.getElementById('trimInputs').style.display = 'none';
+  document.getElementById('trimOption')?.classList.remove('active');
+  document.getElementById('trimStart').value = '';
+  document.getElementById('trimEnd').value = '';
+  trimEnabled = false;
   
   // Switch to downloads tab
   document.querySelector('[data-tab="downloads"]').click();
@@ -532,10 +537,20 @@ async function scheduleDownload() {
   else if (selectedFormat === 'video-480') format = { quality: '480p' };
   else if (selectedFormat === 'video-1080') format = { quality: '1080p' };
   
+  // Get trim options (only for single videos)
+  const trimStart = trimEnabled ? document.getElementById('trimStart')?.value || null : null;
+  const trimEnd = trimEnabled ? document.getElementById('trimEnd')?.value || null : null;
+  
+  // Get subtitle options
+  const subtitleEnabled = document.getElementById('subtitleToggle')?.checked || false;
+  const subtitleLang = subtitleEnabled ? (document.getElementById('subtitleSelect')?.value || 'en') : null;
+  const embedSubs = subtitleEnabled ? (document.getElementById('embedSubtitles')?.checked || false) : false;
+  
   await window.electronAPI.scheduleDownload({
     url, title, format,
     type: isAudio ? 'audio' : 'video',
-    scheduledTime: selectedScheduleTime.toISOString()
+    scheduledTime: selectedScheduleTime.toISOString(),
+    trimStart, trimEnd, subtitleLang, embedSubs
   });
   
   showToast('Download scheduled!', 'success');
@@ -606,7 +621,11 @@ window.electronAPI.onScheduledDownloadReady(async (item) => {
     format: item.format,
     type: item.type,
     downloadId,
-    title: item.title
+    title: item.title,
+    trimStart: item.trimStart,
+    trimEnd: item.trimEnd,
+    subtitleLang: item.subtitleLang,
+    embedSubs: item.embedSubs
   });
 });
 
@@ -979,6 +998,11 @@ window.parseBatchUrls = async function() {
     return;
   }
   
+  // Get subtitle options from the main download options
+  const subtitleEnabled = document.getElementById('subtitleToggle')?.checked || false;
+  const subtitleLang = subtitleEnabled ? (document.getElementById('subtitleSelect')?.value || 'en') : null;
+  const embedSubs = subtitleEnabled ? (document.getElementById('embedSubtitles')?.checked || false) : false;
+  
   showToast(`Found ${urls.length} URLs. Starting downloads...`, 'success');
   closeBatchModal();
   
@@ -1027,7 +1051,9 @@ window.parseBatchUrls = async function() {
         format,
         type: download.type,
         downloadId: download.id,
-        title: download.title
+        title: download.title,
+        subtitleLang,
+        embedSubs
       });
     } catch (error) {
       download.status = 'error';
