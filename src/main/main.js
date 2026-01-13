@@ -819,6 +819,28 @@ ipcMain.handle('cancel-download', (event, downloadId) => {
   return { success: false, error: 'Download not found' };
 });
 
+// Pause download (stop process, keep state)
+ipcMain.handle('pause-download', (event, downloadId) => {
+  const download = activeDownloads.get(downloadId);
+  if (download && download.proc) {
+    download.proc.kill('SIGSTOP'); // Pause the process
+    download.paused = true;
+    return { success: true };
+  }
+  return { success: false, error: 'Download not found' };
+});
+
+// Resume download
+ipcMain.handle('resume-download', (event, downloadId) => {
+  const download = activeDownloads.get(downloadId);
+  if (download && download.proc) {
+    download.proc.kill('SIGCONT'); // Resume the process
+    download.paused = false;
+    return { success: true };
+  }
+  return { success: false, error: 'Download not found' };
+});
+
 // Get download history
 ipcMain.handle('get-history', () => {
   return loadHistory();

@@ -1178,3 +1178,212 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
+/* Subtitle Section */
+.subtitle-section {
+  margin-bottom: 20px;
+  background: var(--bg-secondary);
+  padding: 15px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.subtitle-section .section-header {
+  margin-bottom: 12px;
+}
+
+.subtitle-options {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.subtitle-select {
+  padding: 8px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+  min-width: 150px;
+}
+
+.subtitle-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.embed-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.embed-toggle input {
+  accent-color: var(--accent);
+}
+
+/* Playlist Selection */
+.playlist-selection {
+  margin-bottom: 20px;
+  background: var(--bg-secondary);
+  padding: 15px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  max-height: 300px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.playlist-selection .section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.playlist-selection h4 {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.playlist-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.playlist-videos {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.playlist-video-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.playlist-video-item:hover {
+  background: var(--bg-tertiary);
+}
+
+.playlist-video-item.selected {
+  background: rgba(233, 69, 96, 0.15);
+  border: 1px solid rgba(233, 69, 96, 0.3);
+}
+
+.playlist-video-item input[type="checkbox"] {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+}
+
+.playlist-video-item .video-number {
+  color: var(--text-muted);
+  font-size: 12px;
+  min-width: 25px;
+}
+
+.playlist-video-item .video-title {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.playlist-video-item .video-duration {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.playlist-videos .loading,
+.playlist-videos .error {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+/* Progress bar paused state */
+.progress-bar.paused .progress-fill {
+  background: var(--warning);
+}
+
+/* Action buttons */
+.action-btn.pause {
+  color: var(--warning);
+}
+
+.action-btn.resume {
+  color: var(--success);
+}
+
+/* Trim section enhancement */
+.trim-section {
+  margin-bottom: 20px;
+  background: var(--bg-secondary);
+  padding: 15px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.trim-section .section-header {
+  margin-bottom: 0;
+}
+
+.trim-inputs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.trim-inputs input {
+  flex: 1;
+  padding: 10px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.trim-inputs input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.trim-inputs span {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Toggle label */
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.toggle-label input {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+}
+
+/* Status paused */
+.status.paused {
+  color: var(--warning);
+}

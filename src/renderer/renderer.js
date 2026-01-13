@@ -73,6 +73,9 @@ urlInput.addEventListener('input', () => {
         const isChannel = await window.electronAPI.isChannelUrl(value);
         const isPlaylist = value.includes('list=') && !value.includes('v=');
         
+        // Show subtitle section for any valid video/playlist/channel
+        document.getElementById('subtitleSection').style.display = 'block';
+        
         if (isChannel) {
           selectedVideo = {
             url: value,
@@ -81,6 +84,7 @@ urlInput.addEventListener('input', () => {
             thumbnail: null,
             isChannel: true
           };
+          document.getElementById('playlistSelection').style.display = 'none';
           downloadBtn.disabled = false;
         } else if (isPlaylist) {
           selectedVideo = {
@@ -90,9 +94,12 @@ urlInput.addEventListener('input', () => {
             thumbnail: null,
             isPlaylist: true
           };
+          // Load playlist videos for selection
+          loadPlaylistVideos(value);
           downloadBtn.disabled = false;
         } else {
           // Single video - get info
+          document.getElementById('playlistSelection').style.display = 'none';
           const info = await window.electronAPI.getVideoInfo(value);
           selectedVideo = {
             url: value,
@@ -304,6 +311,65 @@ document.getElementById('trimToggle')?.addEventListener('change', (e) => {
   document.getElementById('trimInputs').style.display = trimEnabled ? 'flex' : 'none';
 });
 
+// Subtitle toggle
+document.getElementById('subtitleToggle')?.addEventListener('change', (e) => {
+  document.getElementById('subtitleOptions').style.display = e.target.checked ? 'flex' : 'none';
+});
+
+// Playlist selection
+let playlistVideos = [];
+let selectedPlaylistVideos = new Set();
+
+window.selectAllPlaylist = function() {
+  playlistVideos.forEach(v => selectedPlaylistVideos.add(v.url));
+  renderPlaylistSelection();
+};
+
+window.deselectAllPlaylist = function() {
+  selectedPlaylistVideos.clear();
+  renderPlaylistSelection();
+};
+
+window.togglePlaylistVideo = function(url) {
+  if (selectedPlaylistVideos.has(url)) {
+    selectedPlaylistVideos.delete(url);
+  } else {
+    selectedPlaylistVideos.add(url);
+  }
+  renderPlaylistSelection();
+};
+
+function renderPlaylistSelection() {
+  const container = document.getElementById('playlistVideos');
+  container.innerHTML = playlistVideos.map((v, i) => `
+    <div class="playlist-video-item ${selectedPlaylistVideos.has(v.url) ? 'selected' : ''}" onclick="togglePlaylistVideo('${v.url}')">
+      <input type="checkbox" ${selectedPlaylistVideos.has(v.url) ? 'checked' : ''} onclick="event.stopPropagation(); togglePlaylistVideo('${v.url}')">
+      <span class="video-number">${i + 1}</span>
+      <span class="video-title">${escapeHtml(v.title)}</span>
+      <span class="video-duration">${v.duration || ''}</span>
+    </div>
+  `).join('');
+}
+
+async function loadPlaylistVideos(url) {
+  const container = document.getElementById('playlistVideos');
+  container.innerHTML = '<div class="loading">Loading playlist videos...</div>';
+  document.getElementById('playlistSelection').style.display = 'block';
+  
+  try {
+    const result = await window.electronAPI.getPlaylistVideos(url);
+    if (result.success && result.videos) {
+      playlistVideos = result.videos;
+      selectedPlaylistVideos = new Set(playlistVideos.map(v => v.url));
+      renderPlaylistSelection();
+    } else {
+      container.innerHTML = '<div class="error">Failed to load playlist videos</div>';
+    }
+  } catch (err) {
+    container.innerHTML = '<div class="error">Error loading playlist</div>';
+  }
+}
+
 // Download button
 downloadBtn.addEventListener('click', startDownload);
 
@@ -326,8 +392,9 @@ async function startDownload() {
   }
   
   // Get subtitle options
-  const subtitleLang = document.getElementById('subtitleSelect')?.value || null;
-  const embedSubs = document.getElementById('embedSubs')?.checked || false;
+  const subtitleEnabled = document.getElementById('subtitleToggle')?.checked || false;
+  const subtitleLang = subtitleEnabled ? (document.getElementById('subtitleSelect')?.value || 'en') : null;
+  const embedSubs = subtitleEnabled ? (document.getElementById('embedSubtitles')?.checked || false) : false;
   
   // Clear input
   urlInput.value = '';
@@ -337,6 +404,8 @@ async function startDownload() {
   selectedVideoEl.style.display = 'none';
   searchResults.style.display = 'none';
   document.getElementById('trimSection').style.display = 'none';
+  document.getElementById('subtitleSection').style.display = 'none';
+  document.getElementById('playlistSelection').style.display = 'none';
   downloadBtn.disabled = true;
   
   // Switch to downloads tab
@@ -361,16 +430,20 @@ async function startDownload() {
     await downloadMultipleVideos(channelResult.videos, isAudio, format, subtitleLang, embedSubs);
     
   } else if (isPlaylist) {
-    showToast('Fetching playlist videos...', 'info');
-    const playlistResult = await window.electronAPI.getPlaylistVideos(url);
+    // Use selected videos from playlist selection UI
+    const videosToDownload = playlistVideos.filter(v => selectedPlaylistVideos.has(v.url));
     
-    if (!playlistResult.success) {
-      showToast(`Failed: ${playlistResult.error}`, 'error');
+    if (videosToDownload.length === 0) {
+      showToast('Please select at least one video to download', 'error');
       return;
     }
     
-    showToast(`Found ${playlistResult.videos.length} videos`, 'success');
-    await downloadMultipleVideos(playlistResult.videos, isAudio, format, subtitleLang, embedSubs);
+    showToast(`Downloading ${videosToDownload.length} videos`, 'success');
+    await downloadMultipleVideos(videosToDownload, isAudio, format, subtitleLang, embedSubs);
+    
+    // Clear playlist selection
+    playlistVideos = [];
+    selectedPlaylistVideos.clear();
     
   } else {
     // Single video
@@ -611,9 +684,9 @@ function renderDownloads() {
           ${d.eta ? ` • ETA: ${d.eta}` : ''}
         </div>
       </div>
-      ${d.status === 'downloading' || d.status === 'starting' ? `
+      ${d.status === 'downloading' || d.status === 'starting' || d.status === 'paused' ? `
         <div class="progress-section">
-          <div class="progress-bar">
+          <div class="progress-bar ${d.status === 'paused' ? 'paused' : ''}">
             <div class="progress-fill" style="width: ${d.progress}%"></div>
           </div>
           <div class="progress-text">${Math.round(d.progress)}%</div>
@@ -629,6 +702,23 @@ function renderDownloads() {
           </button>
         ` : ''}
         ${d.status === 'downloading' || d.status === 'starting' ? `
+          <button class="action-btn pause" onclick="pauseDownload('${d.id}')" title="Pause">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+            </svg>
+          </button>
+          <button class="action-btn cancel" onclick="cancelDownload('${d.id}')" title="Cancel">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        ` : ''}
+        ${d.status === 'paused' ? `
+          <button class="action-btn resume" onclick="resumeDownload('${d.id}')" title="Resume">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="5,3 19,12 5,21"/>
+            </svg>
+          </button>
           <button class="action-btn cancel" onclick="cancelDownload('${d.id}')" title="Cancel">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -649,7 +739,7 @@ function renderDownloads() {
 
 function updateBadge() {
   const activeCount = downloads.filter(d => 
-    d.status === 'downloading' || d.status === 'starting' || d.status === 'queued'
+    d.status === 'downloading' || d.status === 'starting' || d.status === 'queued' || d.status === 'paused'
   ).length;
   
   downloadsBadge.textContent = activeCount;
@@ -678,6 +768,26 @@ window.retryDownload = async function(id) {
       downloadId: download.id,
       title: download.title
     });
+  }
+};
+
+window.pauseDownload = async function(id) {
+  const download = downloads.find(d => d.id === id);
+  if (download) {
+    await window.electronAPI.pauseDownload(id);
+    download.status = 'paused';
+    renderDownloads();
+    showToast('Download paused', 'info');
+  }
+};
+
+window.resumeDownload = async function(id) {
+  const download = downloads.find(d => d.id === id);
+  if (download) {
+    await window.electronAPI.resumeDownload(id);
+    download.status = 'downloading';
+    renderDownloads();
+    showToast('Download resumed', 'info');
   }
 };
 

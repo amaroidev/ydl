@@ -150,18 +150,60 @@
             </div>
           </div>
 
+          <!-- Playlist Selection Modal -->
+          <div class="playlist-selection" id="playlistSelection" style="display: none;">
+            <div class="section-header">
+              <h4>Select Videos to Download</h4>
+              <div class="playlist-actions">
+                <button class="btn-text" onclick="selectAllPlaylist()">Select All</button>
+                <button class="btn-text" onclick="deselectAllPlaylist()">Deselect All</button>
+              </div>
+            </div>
+            <div class="playlist-videos" id="playlistVideos"></div>
+          </div>
+
           <!-- Trim Section -->
           <div class="trim-section" id="trimSection" style="display: none;">
             <div class="section-header">
               <label class="toggle-label">
                 <input type="checkbox" id="trimToggle">
-                <span>Trim Video</span>
+                <span>✂️ Trim Video</span>
               </label>
             </div>
             <div class="trim-inputs" id="trimInputs" style="display: none;">
-              <input type="text" id="trimStart" placeholder="Start (0:00 or seconds)">
+              <input type="text" id="trimStart" placeholder="Start (0:00)">
               <span>to</span>
-              <input type="text" id="trimEnd" placeholder="End (0:00 or seconds)">
+              <input type="text" id="trimEnd" placeholder="End (0:00)">
+            </div>
+          </div>
+
+          <!-- Subtitle Section -->
+          <div class="subtitle-section" id="subtitleSection" style="display: none;">
+            <div class="section-header">
+              <label class="toggle-label">
+                <input type="checkbox" id="subtitleToggle">
+                <span>📝 Download Subtitles</span>
+              </label>
+            </div>
+            <div class="subtitle-options" id="subtitleOptions" style="display: none;">
+              <select id="subtitleSelect" class="subtitle-select">
+                <option value="en">English</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+                <option value="pt">Portuguese</option>
+                <option value="it">Italian</option>
+                <option value="ja">Japanese</option>
+                <option value="ko">Korean</option>
+                <option value="zh">Chinese</option>
+                <option value="ar">Arabic</option>
+                <option value="hi">Hindi</option>
+                <option value="ru">Russian</option>
+              </select>
+              <label class="embed-toggle">
+                <input type="checkbox" id="embedSubtitles">
+                <span>Embed into video</span>
+              </label>
             </div>
           </div>
 

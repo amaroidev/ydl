@@ -23,6 +23,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Downloads
   startDownload: (options) => ipcRenderer.invoke('start-download', options),
   cancelDownload: (downloadId) => ipcRenderer.invoke('cancel-download', downloadId),
+  pauseDownload: (downloadId) => ipcRenderer.invoke('pause-download', downloadId),
+  resumeDownload: (downloadId) => ipcRenderer.invoke('resume-download', downloadId),
   
   // Folder operations
   selectFolder: () => ipcRenderer.invoke('select-folder'),
