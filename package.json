@@ -1,6 +1,6 @@
 {
   "name": "roitube",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "A powerful YouTube downloader by roidev",
   "main": "src/main/main.js",
   "author": "roidev",
