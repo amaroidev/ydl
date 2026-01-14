@@ -352,14 +352,14 @@ function checkScheduledDownloads() {
 app.whenReady().then(async () => {
   loadSettings();
   
-  try {
-    await ensureYtdlp();
-  } catch (err) {
-    console.error('Failed to setup yt-dlp:', err);
-  }
-  
+  // Create window first for fast startup
   createWindow();
   createTray();
+  
+  // Initialize yt-dlp in background (non-blocking)
+  ensureYtdlp().catch(err => {
+    console.error('Failed to setup yt-dlp:', err);
+  });
   
   if (clipboardMonitorEnabled) {
     startClipboardWatcher();

@@ -7,6 +7,17 @@ let clipboardUrl = null;
 let trimEnabled = false;
 let selectedScheduleTime = null;
 
+// Hide loading splash when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    const splash = document.getElementById('loadingSplash');
+    if (splash) {
+      splash.classList.add('hidden');
+      setTimeout(() => splash.remove(), 300);
+    }
+  }, 500);
+});
+
 // DOM Elements
 const urlInput = document.getElementById('urlInput');
 const urlIndicator = document.getElementById('urlIndicator');
