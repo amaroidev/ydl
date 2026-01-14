@@ -1,4 +1,4 @@
-# YouTube Downloader
+# RoiTube Downloader
 
 A beautiful, robust YouTube downloader built with Electron. Download videos and audio with an excellent user experience.
 
