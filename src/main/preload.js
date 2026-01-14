@@ -46,6 +46,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Settings
   getSettings: () => ipcRenderer.invoke('get-settings'),
   updateSettings: (settings) => ipcRenderer.invoke('update-settings', settings),
+  selectCookiesFile: () => ipcRenderer.invoke('select-cookies-file'),
+  clearCookiesFile: () => ipcRenderer.invoke('clear-cookies-file'),
+  
+  // App updates
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  downloadUpdate: (url) => ipcRenderer.invoke('download-update', url),
   
   // Batch import
   parseUrls: (text) => ipcRenderer.invoke('parse-urls', text),

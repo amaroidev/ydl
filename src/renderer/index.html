@@ -88,7 +88,7 @@
       </button>
       <div class="sidebar-footer">
         <span class="credit">by <a href="https://github.com/amaroidev" target="_blank">roidev</a></span>
-        <span class="version">v2.2.0</span>
+        <span class="version">v2.3.0</span>
       </div>
     </nav>
 
@@ -415,21 +415,109 @@
           </div>
 
           <div class="setting-group">
+            <h4>YouTube Authentication</h4>
+            <p class="setting-description">If downloads fail with "Sign in to confirm you're not a bot", import your YouTube cookies.</p>
+            <div class="setting-row">
+              <span class="path-display" id="cookiesPathDisplay">No cookies file selected</span>
+              <div class="btn-group">
+                <button class="btn-secondary" id="selectCookiesBtn">Select File</button>
+                <button class="btn-secondary danger" id="clearCookiesBtn" style="display: none;">Clear</button>
+              </div>
+            </div>
+            <p class="setting-hint">
+              <a href="#" id="cookiesHelpLink">How to export YouTube cookies?</a>
+            </p>
+          </div>
+
+          <div class="setting-group">
+            <h4>Advanced</h4>
+            <p class="setting-description">Custom yt-dlp arguments (for advanced users)</p>
+            <div class="setting-row">
+              <input type="text" id="customYtdlpArgs" class="setting-input" placeholder="e.g. --geo-bypass --limit-rate 1M">
+              <button class="btn-secondary" id="saveCustomArgsBtn">Save</button>
+            </div>
+          </div>
+
+          <div class="setting-group">
             <h4>Maintenance</h4>
             <div class="setting-row">
               <span>Update yt-dlp to latest version</span>
               <button class="btn-secondary" id="updateYtdlpBtn">Update</button>
             </div>
+            <div class="setting-row">
+              <span>Check for RoiTube updates</span>
+              <button class="btn-secondary" id="checkUpdatesBtn">Check</button>
+            </div>
           </div>
 
           <div class="setting-group">
             <h4>About</h4>
-            <p class="about-text">RoiTube v2.1.0</p>
+            <p class="about-text" id="versionText">RoiTube v2.3.0</p>
             <p class="about-text secondary">Fast and powerful YouTube downloader with clipboard monitor, scheduling, batch downloads, and more.</p>
           </div>
         </div>
       </section>
     </main>
+  </div>
+
+  <!-- Update Modal -->
+  <div class="modal" id="updateModal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Update Available</h3>
+        <button class="btn-clear" onclick="closeUpdateModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p id="updateVersionText">A new version is available!</p>
+        <div class="update-notes" id="updateNotes"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeUpdateModal()">Later</button>
+        <button class="btn-primary" id="downloadUpdateBtn">Download Update</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cookies Help Modal -->
+  <div class="modal" id="cookiesHelpModal" style="display: none;">
+    <div class="modal-content wide">
+      <div class="modal-header">
+        <h3>How to Export YouTube Cookies</h3>
+        <button class="btn-clear" onclick="closeCookiesHelpModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="help-steps">
+          <h4>⚠️ Why do I need cookies?</h4>
+          <p>YouTube now requires authentication to prevent bot access. Providing cookies allows RoiTube to download videos as if you were browsing YouTube in your browser.</p>
+          
+          <h4>📋 Steps to export cookies:</h4>
+          <ol>
+            <li>Install a browser extension:
+              <ul>
+                <li><strong>Chrome/Edge:</strong> <a href="https://chrome.google.com/webstore/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank">Get cookies.txt LOCALLY</a></li>
+                <li><strong>Firefox:</strong> <a href="https://addons.mozilla.org/en-US/firefox/addon/cookies-txt/" target="_blank">cookies.txt</a></li>
+              </ul>
+            </li>
+            <li>Open an <strong>Incognito/Private</strong> browser window</li>
+            <li>Go to <a href="https://www.youtube.com" target="_blank">youtube.com</a> and sign in</li>
+            <li>Navigate to <code>youtube.com/robots.txt</code></li>
+            <li>Click the extension icon and export cookies for youtube.com</li>
+            <li>Save the file and select it in RoiTube settings</li>
+            <li><strong>Close the incognito window</strong> (important!)</li>
+          </ol>
+          
+          <h4>⚠️ Important Notes:</h4>
+          <ul>
+            <li>Using cookies may risk your YouTube account being flagged</li>
+            <li>Consider using a secondary/throwaway account</li>
+            <li>Don't share your cookies file with anyone</li>
+          </ul>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" onclick="closeCookiesHelpModal()">Got it</button>
+      </div>
+    </div>
   </div>
 
   <!-- Batch Import Modal -->

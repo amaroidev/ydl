@@ -1071,6 +1071,23 @@ async function loadSettings() {
   document.getElementById('minimizeToTray').checked = settings.minimizeToTray;
   document.getElementById('showNotifications').checked = settings.showNotifications;
   document.getElementById('clipboardMonitor').checked = settings.clipboardMonitor;
+  
+  // Cookies file path
+  const cookiesDisplay = document.getElementById('cookiesPathDisplay');
+  const clearCookiesBtn = document.getElementById('clearCookiesBtn');
+  if (settings.cookiesFilePath) {
+    cookiesDisplay.textContent = settings.cookiesFilePath;
+    clearCookiesBtn.style.display = 'inline-flex';
+  } else {
+    cookiesDisplay.textContent = 'No cookies file selected';
+    clearCookiesBtn.style.display = 'none';
+  }
+  
+  // Custom yt-dlp args
+  document.getElementById('customYtdlpArgs').value = settings.customYtdlpArgs || '';
+  
+  // Version text
+  document.getElementById('versionText').textContent = `RoiTube v${settings.currentVersion || '2.3.0'}`;
 }
 
 document.getElementById('changeFolderBtn')?.addEventListener('click', async () => {
@@ -1097,6 +1114,35 @@ document.getElementById('clipboardMonitor')?.addEventListener('change', async (e
   await window.electronAPI.updateSettings({ clipboardMonitor: e.target.checked });
 });
 
+// Cookies file selection
+document.getElementById('selectCookiesBtn')?.addEventListener('click', async () => {
+  const result = await window.electronAPI.selectCookiesFile();
+  if (result.success) {
+    document.getElementById('cookiesPathDisplay').textContent = result.path;
+    document.getElementById('clearCookiesBtn').style.display = 'inline-flex';
+    showToast('Cookies file selected. Try downloading again!', 'success');
+  }
+});
+
+document.getElementById('clearCookiesBtn')?.addEventListener('click', async () => {
+  await window.electronAPI.clearCookiesFile();
+  document.getElementById('cookiesPathDisplay').textContent = 'No cookies file selected';
+  document.getElementById('clearCookiesBtn').style.display = 'none';
+  showToast('Cookies file cleared', 'info');
+});
+
+document.getElementById('cookiesHelpLink')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  document.getElementById('cookiesHelpModal').style.display = 'flex';
+});
+
+// Custom yt-dlp args
+document.getElementById('saveCustomArgsBtn')?.addEventListener('click', async () => {
+  const customArgs = document.getElementById('customYtdlpArgs').value;
+  await window.electronAPI.updateSettings({ customYtdlpArgs: customArgs });
+  showToast('Custom arguments saved', 'success');
+});
+
 document.getElementById('updateYtdlpBtn')?.addEventListener('click', async () => {
   showToast('Updating yt-dlp...', 'info');
   const result = await window.electronAPI.updateYtdlp();
@@ -1105,6 +1151,47 @@ document.getElementById('updateYtdlpBtn')?.addEventListener('click', async () =>
   } else {
     showToast(`Update failed: ${result.error}`, 'error');
   }
+});
+
+// Check for app updates
+document.getElementById('checkUpdatesBtn')?.addEventListener('click', async () => {
+  showToast('Checking for updates...', 'info');
+  const result = await window.electronAPI.checkForUpdates();
+  
+  if (result.success) {
+    if (result.hasUpdate) {
+      document.getElementById('updateVersionText').textContent = 
+        `Version ${result.latestVersion} is available! (You have ${result.currentVersion})`;
+      document.getElementById('updateNotes').textContent = result.releaseNotes || 'No release notes available.';
+      document.getElementById('downloadUpdateBtn').onclick = () => {
+        window.electronAPI.downloadUpdate(result.downloadUrl);
+        closeUpdateModal();
+      };
+      document.getElementById('updateModal').style.display = 'flex';
+    } else {
+      showToast('You have the latest version!', 'success');
+    }
+  } else {
+    showToast(`Update check failed: ${result.error}`, 'error');
+  }
+});
+
+// Modal functions
+function closeUpdateModal() {
+  document.getElementById('updateModal').style.display = 'none';
+}
+
+function closeCookiesHelpModal() {
+  document.getElementById('cookiesHelpModal').style.display = 'none';
+}
+
+// Close modals on backdrop click
+document.getElementById('updateModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'updateModal') closeUpdateModal();
+});
+
+document.getElementById('cookiesHelpModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'cookiesHelpModal') closeCookiesHelpModal();
 });
 
 // Utilities

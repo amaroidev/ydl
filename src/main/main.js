@@ -3,6 +3,10 @@ const path = require('path');
 const fs = require('fs');
 const { spawn, execSync } = require('child_process');
 
+// Fix GPU cache warnings
+app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
+app.disableHardwareAcceleration();
+
 // Get ffmpeg path - handle both dev and packaged scenarios
 function getFfmpegPath() {
   let ffmpegPath = require('ffmpeg-static');
@@ -26,6 +30,10 @@ let lastClipboard = '';
 let minimizeToTray = true;
 let showNotifications = true;
 let clipboardMonitorEnabled = true;
+let cookiesFilePath = ''; // Path to YouTube cookies file
+let customYtdlpArgs = ''; // Custom yt-dlp arguments
+const GITHUB_REPO = 'amaroidev/ydl';
+const CURRENT_VERSION = '2.3.0';
 
 // Default download path
 let downloadPath = path.join(app.getPath('downloads'), 'YouTube Downloads');
@@ -44,6 +52,8 @@ function loadSettings() {
       minimizeToTray = data.minimizeToTray !== false;
       showNotifications = data.showNotifications !== false;
       clipboardMonitorEnabled = data.clipboardMonitor !== false;
+      cookiesFilePath = data.cookiesFilePath || '';
+      customYtdlpArgs = data.customYtdlpArgs || '';
     }
   } catch (e) {
     console.error('Failed to load settings:', e);
@@ -57,7 +67,9 @@ function saveSettings() {
       downloadPath,
       minimizeToTray,
       showNotifications,
-      clipboardMonitor: clipboardMonitorEnabled
+      clipboardMonitor: clipboardMonitorEnabled,
+      cookiesFilePath,
+      customYtdlpArgs
     }, null, 2));
   } catch (e) {
     console.error('Failed to save settings:', e);
@@ -147,6 +159,28 @@ async function ensureYtdlp() {
     console.error('Failed to download yt-dlp:', err);
     throw err;
   }
+}
+
+// Build common yt-dlp arguments with cookies and custom args
+function buildYtdlpArgs(baseArgs = []) {
+  let args = [...baseArgs];
+  
+  // Add cookies file if configured
+  if (cookiesFilePath && fs.existsSync(cookiesFilePath)) {
+    args.push('--cookies', cookiesFilePath);
+  }
+  
+  // Add extractor args for YouTube (helps bypass bot detection)
+  args.push('--extractor-args', 'youtube:player_client=android,web');
+  
+  // Add custom yt-dlp arguments if configured
+  if (customYtdlpArgs && customYtdlpArgs.trim()) {
+    // Parse custom args (handle quoted strings)
+    const customArgsArray = customYtdlpArgs.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
+    args.push(...customArgsArray.map(arg => arg.replace(/^["']|["']$/g, '')));
+  }
+  
+  return args;
 }
 
 // Check if URL is a valid YouTube URL
@@ -384,13 +418,13 @@ ipcMain.handle('search-youtube', async (event, query) => {
     if (!ytdlpPath) await ensureYtdlp();
     
     return new Promise((resolve) => {
-      const args = [
+      const baseArgs = [
         `ytsearch10:${query}`,
         '--flat-playlist',
         '--print', '%(id)s\t%(title)s\t%(duration_string)s\t%(channel)s\t%(view_count)s',
-        '--no-warnings',
-        '--extractor-args', 'youtube:player_client=android,web'
+        '--no-warnings'
       ];
+      const args = buildYtdlpArgs(baseArgs);
       
       const proc = spawn(ytdlpPath, args);
       let output = '';
@@ -434,13 +468,13 @@ ipcMain.handle('get-video-info', async (event, url) => {
     if (!ytdlpPath) await ensureYtdlp();
     
     return new Promise((resolve) => {
-      const args = [
+      const baseArgs = [
         '--no-download',
         '--print', '%(id)s\t%(title)s\t%(channel)s\t%(duration)s\t%(duration_string)s',
         '--no-playlist',
-        '--extractor-args', 'youtube:player_client=android,web',
         url
       ];
+      const args = buildYtdlpArgs(baseArgs);
       
       const proc = spawn(ytdlpPath, args);
       let output = '';
@@ -530,13 +564,13 @@ ipcMain.handle('get-channel-videos', async (event, url, limit = 20) => {
     
     return new Promise((resolve) => {
       const channelUrl = url.includes('/videos') ? url : url + '/videos';
-      const args = [
+      const baseArgs = [
         '--flat-playlist',
         '--playlist-end', limit.toString(),
         '--print', '%(id)s\t%(title)s\t%(duration_string)s',
-        '--extractor-args', 'youtube:player_client=android,web',
         channelUrl
       ];
+      const args = buildYtdlpArgs(baseArgs);
       
       const proc = spawn(ytdlpPath, args);
       let output = '';
@@ -606,12 +640,12 @@ ipcMain.handle('get-playlist-videos', async (event, url) => {
     if (!ytdlpPath) await ensureYtdlp();
     
     return new Promise((resolve) => {
-      const args = [
+      const baseArgs = [
         '--flat-playlist',
         '--print', '%(id)s\t%(title)s\t%(duration_string)s',
-        '--extractor-args', 'youtube:player_client=android,web',
         url
       ];
+      const args = buildYtdlpArgs(baseArgs);
       
       const proc = spawn(ytdlpPath, args);
       let output = '';
@@ -658,21 +692,20 @@ ipcMain.handle('start-download', async (event, options) => {
     const outputTemplate = path.join(downloadPath, '%(title).100s.%(ext)s');
     const resolvedFfmpegPath = getFfmpegPath();
     
-    let args = [
+    // Build base args
+    let baseArgs = [
       '-o', outputTemplate,
       '--newline',
       '--progress-template', 'download:%(progress._percent_str)s %(progress._speed_str)s %(progress._eta_str)s',
       '--ffmpeg-location', resolvedFfmpegPath,
-      '--no-playlist',
-      // Use android+web client to bypass YouTube bot detection
-      '--extractor-args', 'youtube:player_client=android,web'
+      '--no-playlist'
     ];
     
     // Subtitle options
     if (subtitleLang) {
-      args.push('--write-subs', '--sub-lang', subtitleLang);
+      baseArgs.push('--write-subs', '--sub-lang', subtitleLang);
       if (embedSubs) {
-        args.push('--embed-subs');
+        baseArgs.push('--embed-subs');
       }
     }
     
@@ -693,14 +726,14 @@ ipcMain.handle('start-download', async (event, options) => {
       
       if (startSec > 0 || endSec) {
         const sectionStr = endSec ? `*${startSec}-${endSec}` : `*${startSec}-`;
-        args.push('--download-sections', sectionStr);
+        baseArgs.push('--download-sections', sectionStr);
         // Force keyframes at cuts ensures proper audio/video sync
-        args.push('--force-keyframes-at-cuts');
+        baseArgs.push('--force-keyframes-at-cuts');
       }
     }
     
     if (type === 'audio') {
-      args.push('-x', '--audio-format', 'mp3', '--audio-quality', '0');
+      baseArgs.push('-x', '--audio-format', 'mp3', '--audio-quality', '0');
     } else {
       // Use simpler format string that ensures audio is included
       let formatStr;
@@ -713,10 +746,13 @@ ipcMain.handle('start-download', async (event, options) => {
       } else {
         formatStr = 'bestvideo+bestaudio/best';
       }
-      args.push('-f', formatStr, '--merge-output-format', 'mp4');
+      baseArgs.push('-f', formatStr, '--merge-output-format', 'mp4');
     }
     
-    args.push(url);
+    baseArgs.push(url);
+    
+    // Build final args with cookies and custom args
+    const args = buildYtdlpArgs(baseArgs);
     
     console.log('Starting download with args:', args);
     
@@ -924,7 +960,15 @@ ipcMain.handle('run-scheduled-now', (event, id) => {
 
 // Settings
 ipcMain.handle('get-settings', () => {
-  return { downloadPath, minimizeToTray, showNotifications, clipboardMonitor: clipboardMonitorEnabled };
+  return { 
+    downloadPath, 
+    minimizeToTray, 
+    showNotifications, 
+    clipboardMonitor: clipboardMonitorEnabled,
+    cookiesFilePath,
+    customYtdlpArgs,
+    currentVersion: CURRENT_VERSION
+  };
 });
 
 ipcMain.handle('update-settings', (event, settings) => {
@@ -940,8 +984,86 @@ ipcMain.handle('update-settings', (event, settings) => {
     }
     updateTrayMenu();
   }
+  if (settings.cookiesFilePath !== undefined) cookiesFilePath = settings.cookiesFilePath;
+  if (settings.customYtdlpArgs !== undefined) customYtdlpArgs = settings.customYtdlpArgs;
   saveSettings();
   return { success: true };
+});
+
+// Select cookies file
+ipcMain.handle('select-cookies-file', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Select YouTube Cookies File',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Cookies', extensions: ['txt', 'cookies'] },
+      { name: 'All Files', extensions: ['*'] }
+    ]
+  });
+  if (!result.canceled && result.filePaths.length > 0) {
+    cookiesFilePath = result.filePaths[0];
+    saveSettings();
+    return { success: true, path: cookiesFilePath };
+  }
+  return { success: false };
+});
+
+// Clear cookies file
+ipcMain.handle('clear-cookies-file', () => {
+  cookiesFilePath = '';
+  saveSettings();
+  return { success: true };
+});
+
+// Check for app updates
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    const https = require('https');
+    return new Promise((resolve) => {
+      const options = {
+        hostname: 'api.github.com',
+        path: `/repos/${GITHUB_REPO}/releases/latest`,
+        headers: { 'User-Agent': 'RoiTube-App' }
+      };
+      
+      https.get(options, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            const release = JSON.parse(data);
+            const latestVersion = release.tag_name?.replace('v', '') || '';
+            const hasUpdate = latestVersion && latestVersion !== CURRENT_VERSION;
+            resolve({
+              success: true,
+              hasUpdate,
+              currentVersion: CURRENT_VERSION,
+              latestVersion,
+              downloadUrl: release.html_url,
+              releaseNotes: release.body || '',
+              assets: release.assets || []
+            });
+          } catch (e) {
+            resolve({ success: false, error: 'Failed to parse release info' });
+          }
+        });
+      }).on('error', (e) => {
+        resolve({ success: false, error: e.message });
+      });
+    });
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Download app update
+ipcMain.handle('download-update', async (event, downloadUrl) => {
+  try {
+    shell.openExternal(downloadUrl);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
 });
 
 // Batch import URLs
