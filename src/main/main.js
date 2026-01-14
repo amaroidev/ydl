@@ -996,14 +996,59 @@ ipcMain.handle('select-cookies-file', async () => {
     title: 'Select YouTube Cookies File',
     properties: ['openFile'],
     filters: [
-      { name: 'Cookies', extensions: ['txt', 'cookies'] },
+      { name: 'Cookies', extensions: ['txt', 'cookies', 'json'] },
       { name: 'All Files', extensions: ['*'] }
     ]
   });
   if (!result.canceled && result.filePaths.length > 0) {
-    cookiesFilePath = result.filePaths[0];
-    saveSettings();
-    return { success: true, path: cookiesFilePath };
+    const selectedPath = result.filePaths[0];
+    
+    try {
+      // Read the file and check if it's JSON format
+      const content = fs.readFileSync(selectedPath, 'utf-8').trim();
+      
+      if (content.startsWith('[')) {
+        // JSON format - convert to proper Netscape format
+        const cookies = JSON.parse(content);
+        const netscapeLines = [
+          '# Netscape HTTP Cookie File',
+          '# http://curl.haxx.se/rfc/cookie_spec.html',
+          '# This is a generated file!  Do not edit.',
+          ''
+        ];
+        
+        for (const cookie of cookies) {
+          const domain = cookie.domain || '';
+          // Flag is TRUE if domain starts with dot (applies to all subdomains)
+          const flag = domain.startsWith('.') ? 'TRUE' : 'FALSE';
+          const cookiePath = cookie.path || '/';
+          const secure = cookie.secure ? 'TRUE' : 'FALSE';
+          const expiry = Math.floor(cookie.expirationDate || 0);
+          const name = cookie.name || '';
+          const value = cookie.value || '';
+          
+          // HttpOnly cookies need #HttpOnly_ prefix
+          const prefix = cookie.httpOnly ? '#HttpOnly_' : '';
+          
+          netscapeLines.push(`${prefix}${domain}\t${flag}\t${cookiePath}\t${secure}\t${expiry}\t${name}\t${value}`);
+        }
+        
+        // Save converted cookies to app data folder with trailing newline
+        const convertedPath = path.join(app.getPath('userData'), 'youtube-cookies.txt');
+        fs.writeFileSync(convertedPath, netscapeLines.join('\n') + '\n');
+        cookiesFilePath = convertedPath;
+        console.log('Converted JSON cookies to Netscape format:', convertedPath);
+      } else {
+        // Already in Netscape format or other format
+        cookiesFilePath = selectedPath;
+      }
+      
+      saveSettings();
+      return { success: true, path: cookiesFilePath };
+    } catch (e) {
+      console.error('Failed to process cookies file:', e);
+      return { success: false, error: 'Invalid cookies file format' };
+    }
   }
   return { success: false };
 });
