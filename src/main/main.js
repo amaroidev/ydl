@@ -388,7 +388,8 @@ ipcMain.handle('search-youtube', async (event, query) => {
         `ytsearch10:${query}`,
         '--flat-playlist',
         '--print', '%(id)s\t%(title)s\t%(duration_string)s\t%(channel)s\t%(view_count)s',
-        '--no-warnings'
+        '--no-warnings',
+        '--extractor-args', 'youtube:player_client=android,web'
       ];
       
       const proc = spawn(ytdlpPath, args);
@@ -437,6 +438,7 @@ ipcMain.handle('get-video-info', async (event, url) => {
         '--no-download',
         '--print', '%(id)s\t%(title)s\t%(channel)s\t%(duration)s\t%(duration_string)s',
         '--no-playlist',
+        '--extractor-args', 'youtube:player_client=android,web',
         url
       ];
       
@@ -532,6 +534,7 @@ ipcMain.handle('get-channel-videos', async (event, url, limit = 20) => {
         '--flat-playlist',
         '--playlist-end', limit.toString(),
         '--print', '%(id)s\t%(title)s\t%(duration_string)s',
+        '--extractor-args', 'youtube:player_client=android,web',
         channelUrl
       ];
       
@@ -606,6 +609,7 @@ ipcMain.handle('get-playlist-videos', async (event, url) => {
       const args = [
         '--flat-playlist',
         '--print', '%(id)s\t%(title)s\t%(duration_string)s',
+        '--extractor-args', 'youtube:player_client=android,web',
         url
       ];
       
@@ -659,7 +663,9 @@ ipcMain.handle('start-download', async (event, options) => {
       '--newline',
       '--progress-template', 'download:%(progress._percent_str)s %(progress._speed_str)s %(progress._eta_str)s',
       '--ffmpeg-location', resolvedFfmpegPath,
-      '--no-playlist'
+      '--no-playlist',
+      // Use android+web client to bypass YouTube bot detection
+      '--extractor-args', 'youtube:player_client=android,web'
     ];
     
     // Subtitle options
