@@ -166,12 +166,15 @@ function buildYtdlpArgs(baseArgs = []) {
   let args = [...baseArgs];
   
   // Add cookies file if configured
-  if (cookiesFilePath && fs.existsSync(cookiesFilePath)) {
+  const hasCookies = cookiesFilePath && fs.existsSync(cookiesFilePath);
+  if (hasCookies) {
     args.push('--cookies', cookiesFilePath);
+    // When using cookies, let yt-dlp auto-select the best client
+    // Don't force player_client as it can cause issues with cookies
+  } else {
+    // Without cookies, try android client first (helps bypass bot detection)
+    args.push('--extractor-args', 'youtube:player_client=android,web');
   }
-  
-  // Add extractor args for YouTube (helps bypass bot detection)
-  args.push('--extractor-args', 'youtube:player_client=android,web');
   
   // Add custom yt-dlp arguments if configured
   if (customYtdlpArgs && customYtdlpArgs.trim()) {
@@ -476,6 +479,12 @@ ipcMain.handle('get-video-info', async (event, url) => {
       ];
       const args = buildYtdlpArgs(baseArgs);
       
+      console.log('=== GET VIDEO INFO ===');
+      console.log('URL:', url);
+      console.log('Cookies path:', cookiesFilePath);
+      console.log('Cookies exists:', cookiesFilePath ? fs.existsSync(cookiesFilePath) : 'N/A');
+      console.log('Full args:', args.join(' '));
+      
       const proc = spawn(ytdlpPath, args);
       let output = '';
       let errorOutput = '';
@@ -484,8 +493,16 @@ ipcMain.handle('get-video-info', async (event, url) => {
       proc.stderr.on('data', (data) => { errorOutput += data.toString(); });
       
       proc.on('close', (code) => {
-        if (code === 0) {
-          const parts = output.trim().split('\t');
+        console.log('=== VIDEO INFO RESULT ===');
+        console.log('Exit code:', code);
+        console.log('stdout:', output);
+        console.log('stderr:', errorOutput.substring(0, 500));
+        
+        // Check if we got valid output (yt-dlp returns code 1 when warnings are sent to stderr)
+        const parts = output.trim().split('\t');
+        console.log('Parsed parts:', parts);
+        
+        if (parts[0] && parts[1]) {
           resolve({
             success: true,
             id: parts[0] || '',
@@ -496,7 +513,11 @@ ipcMain.handle('get-video-info', async (event, url) => {
             thumbnail: `https://i.ytimg.com/vi/${parts[0]}/maxresdefault.jpg`
           });
         } else {
-          resolve({ success: false, error: errorOutput || 'Failed to get video info' });
+          // Check for specific errors in stderr
+          const error = errorOutput.includes('Sign in to confirm') 
+            ? 'YouTube requires authentication. Please add cookies in Settings.'
+            : (errorOutput || 'Failed to get video info');
+          resolve({ success: false, error });
         }
       });
       
@@ -763,6 +784,10 @@ ipcMain.handle('start-download', async (event, options) => {
     return new Promise((resolve) => {
       const proc = spawn(ytdlpPath, args);
       let lastProgress = 0;
+      let lastSpeed = '';
+      let lastEta = '';
+      let totalFragments = 0;
+      let currentFragment = 0;
       let outputFilePath = '';
       let errorOutput = '';
       
@@ -772,29 +797,51 @@ ipcMain.handle('start-download', async (event, options) => {
         const output = data.toString();
         console.log('yt-dlp:', output);
         
-        // Parse progress with speed and ETA
-        const progressMatch = output.match(/download:(\d+\.?\d*)%\s*([^\s]*)\s*([^\s]*)/);
-        if (progressMatch) {
-          let progress = parseFloat(progressMatch[1]);
-          const speed = progressMatch[2] || '';
-          const eta = progressMatch[3] || '';
-          
-          if (progress > lastProgress) {
-            lastProgress = progress;
-            mainWindow.webContents.send('download-progress', {
-              id, progress: Math.min(progress, 99), status: 'downloading', speed, eta
-            });
-          }
+        // Check for fragment-based download info (HLS/DASH)
+        // Format: "[hlsnative] Total fragments: 39" or similar
+        const totalFragMatch = output.match(/Total fragments:\s*(\d+)/i);
+        if (totalFragMatch) {
+          totalFragments = parseInt(totalFragMatch[1]);
         }
         
-        // Legacy progress parsing
+        // Parse fragment progress: "(frag 28/39)" 
+        const fragMatch = output.match(/\(frag\s*(\d+)\/(\d+)\)/);
+        if (fragMatch) {
+          currentFragment = parseInt(fragMatch[1]);
+          totalFragments = parseInt(fragMatch[2]);
+        }
+        
+        // Parse speed and ETA from various formats
+        // Format 1: "1.90MiB/s" and "01:56"
+        // Format 2: "at   31.25KiB/s ETA 01:23"
+        const speedMatch = output.match(/(\d+\.?\d*\s*[KMG]i?B\/s)/i);
+        const etaMatch = output.match(/(?:ETA\s*)?(\d{1,2}:\d{2}(?::\d{2})?)/);
+        
+        if (speedMatch) lastSpeed = speedMatch[1].trim();
+        if (etaMatch && !etaMatch[1].includes('/')) lastEta = etaMatch[1];
+        
+        // Parse percentage - look for patterns like "9.8%" or "69.3% of"
         const percentMatch = output.match(/(\d+\.?\d*)%/);
-        if (percentMatch && !progressMatch) {
+        if (percentMatch) {
           let progress = parseFloat(percentMatch[1]);
-          if (progress > lastProgress) {
+          
+          // If we have fragment info, calculate real overall progress
+          if (totalFragments > 0 && currentFragment > 0) {
+            // Each fragment contributes equally to overall progress
+            // Current fragment's progress + completed fragments
+            const fragmentProgress = progress / 100;
+            progress = ((currentFragment - 1 + fragmentProgress) / totalFragments) * 100;
+          }
+          
+          // Always update if progress changed (handles fragment resets)
+          if (Math.abs(progress - lastProgress) > 0.1 || lastSpeed || lastEta) {
             lastProgress = progress;
             mainWindow.webContents.send('download-progress', {
-              id, progress: Math.min(progress, 99), status: 'downloading', speed: '', eta: ''
+              id, 
+              progress: Math.min(Math.round(progress * 10) / 10, 99), 
+              status: 'downloading', 
+              speed: lastSpeed, 
+              eta: lastEta
             });
           }
         }
@@ -819,19 +866,24 @@ ipcMain.handle('start-download', async (event, options) => {
       proc.on('close', (code) => {
         activeDownloads.delete(id);
         
-        if (code === 0) {
-          if (!outputFilePath) {
-            try {
-              const files = fs.readdirSync(downloadPath);
-              const recentFile = files
-                .map(f => ({ name: f, time: fs.statSync(path.join(downloadPath, f)).mtime }))
-                .sort((a, b) => b.time - a.time)[0];
-              if (recentFile) {
-                outputFilePath = path.join(downloadPath, recentFile.name);
-              }
-            } catch {}
-          }
-          
+        // Find output file - yt-dlp may return code 1 even on success due to warnings
+        if (!outputFilePath) {
+          try {
+            const files = fs.readdirSync(downloadPath);
+            const recentFile = files
+              .map(f => ({ name: f, time: fs.statSync(path.join(downloadPath, f)).mtime }))
+              .sort((a, b) => b.time - a.time)[0];
+            // Check if file was created in the last 5 minutes
+            if (recentFile && (Date.now() - recentFile.time.getTime()) < 300000) {
+              outputFilePath = path.join(downloadPath, recentFile.name);
+            }
+          } catch {}
+        }
+        
+        // Check for success: either exit code 0, or we got a file and progress reached near 100%
+        const downloadSucceeded = code === 0 || (outputFilePath && lastProgress >= 99) || (outputFilePath && fs.existsSync(outputFilePath));
+        
+        if (downloadSucceeded && outputFilePath) {
           addToHistory({
             id, title, url, type, filePath: outputFilePath,
             format: format?.quality || (type === 'audio' ? 'MP3' : 'Best')
@@ -844,10 +896,20 @@ ipcMain.handle('start-download', async (event, options) => {
           });
           resolve({ success: true, id, filePath: outputFilePath });
         } else {
+          // Provide user-friendly error messages
+          let error = errorOutput || 'Download failed';
+          if (errorOutput.includes('Sign in to confirm')) {
+            error = 'YouTube requires authentication. Please add cookies in Settings > YouTube Authentication.';
+          } else if (errorOutput.includes('Video unavailable')) {
+            error = 'This video is unavailable or private.';
+          } else if (errorOutput.includes('age-restricted')) {
+            error = 'This video is age-restricted. Add cookies to access it.';
+          }
+          
           mainWindow.webContents.send('download-progress', {
-            id, progress: 0, status: 'error', error: errorOutput || 'Download failed', speed: '', eta: ''
+            id, progress: 0, status: 'error', error, speed: '', eta: ''
           });
-          resolve({ success: false, error: errorOutput || 'Download failed', id });
+          resolve({ success: false, error, id });
         }
       });
       
