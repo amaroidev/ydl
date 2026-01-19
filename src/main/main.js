@@ -129,9 +129,26 @@ function saveScheduled(scheduled) {
   }
 }
 
+// Check for Deno JavaScript runtime (required for YouTube)
+async function ensureDeno() {
+  try {
+    execSync('deno --version', { stdio: 'pipe' });
+    console.log('Deno found');
+    return true;
+  } catch {
+    console.log('Deno not found, will notify user');
+    return false;
+  }
+}
+
+let denoInstalled = false;
+
 // Find or download yt-dlp
 async function ensureYtdlp() {
   const YTDlpWrap = require('yt-dlp-wrap').default;
+  
+  // Check for Deno first
+  denoInstalled = await ensureDeno();
   
   const possiblePaths = [
     path.join(app.getPath('userData'), 'yt-dlp.exe'),
@@ -904,6 +921,10 @@ ipcMain.handle('start-download', async (event, options) => {
             error = 'This video is unavailable or private.';
           } else if (errorOutput.includes('age-restricted')) {
             error = 'This video is age-restricted. Add cookies to access it.';
+          } else if (errorOutput.includes('JavaScript runtime') || errorOutput.includes('Signature solving failed') || errorOutput.includes('Only images are available')) {
+            error = 'YouTube requires Deno runtime. Please install Deno: Run "winget install DenoLand.Deno" in terminal, then restart the app.';
+          } else if (errorOutput.includes('PO Token') || errorOutput.includes('po_token')) {
+            error = 'YouTube requires authentication. Install Deno runtime (winget install DenoLand.Deno) or add cookies in Settings.';
           }
           
           mainWindow.webContents.send('download-progress', {
@@ -1029,7 +1050,8 @@ ipcMain.handle('get-settings', () => {
     clipboardMonitor: clipboardMonitorEnabled,
     cookiesFilePath,
     customYtdlpArgs,
-    currentVersion: CURRENT_VERSION
+    currentVersion: CURRENT_VERSION,
+    denoInstalled
   };
 });
 
