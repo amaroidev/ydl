@@ -863,8 +863,14 @@ ipcMain.handle('start-download', async (event, options) => {
           }
         }
         
-        const destMatch = output.match(/Destination: (.+)/);
-        if (destMatch) outputFilePath = destMatch[1].trim();
+        // For audio extraction, prioritize [ExtractAudio] Destination (final mp3)
+        const extractAudioMatch = output.match(/\[ExtractAudio\] Destination: (.+)/);
+        if (extractAudioMatch) {
+          outputFilePath = extractAudioMatch[1].trim();
+        } else {
+          const destMatch = output.match(/Destination: (.+)/);
+          if (destMatch) outputFilePath = destMatch[1].trim();
+        }
         
         const mergeMatch = output.match(/Merging formats into "(.+)"/);
         if (mergeMatch) outputFilePath = mergeMatch[1].trim();
@@ -877,10 +883,16 @@ ipcMain.handle('start-download', async (event, options) => {
       });
       
       proc.stderr.on('data', (data) => {
-        errorOutput += data.toString();
+        const errStr = data.toString();
+        errorOutput += errStr;
+        console.log('yt-dlp stderr:', errStr);
       });
       
       proc.on('close', (code) => {
+        console.log('yt-dlp process closed with code:', code);
+        console.log('outputFilePath:', outputFilePath);
+        console.log('lastProgress:', lastProgress);
+        console.log('errorOutput:', errorOutput);
         activeDownloads.delete(id);
         
         // Find output file - yt-dlp may return code 1 even on success due to warnings

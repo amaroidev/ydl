@@ -3,14 +3,16 @@
   "version": "2.3.0",
   "description": "A powerful YouTube downloader by roidev",
   "main": "src/main/main.js",
-  "author": "roidev",
+  "author": "roidev <no-reply@roidev.io>",
   "license": "MIT",
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
     "build": "electron-builder",
     "build:win": "electron-builder --win",
-    "build:portable": "electron-builder --win portable"
+    "build:portable": "electron-builder --win portable",
+    "build:linux": "electron-builder --linux rpm",
+    "build:linux:debug": "TMPDIR=./tmp ELECTRON_BUILDER_LOGGING=debug DEBUG=electron-builder electron-builder --linux rpm"
   },
   "build": {
     "appId": "com.roidev.roitube",
@@ -48,6 +50,20 @@
     },
     "portable": {
       "artifactName": "RoiTube.exe"
+    },
+    "linux": {
+      "target": [
+        "rpm"
+      ],
+      "category": "AudioVideo",
+      "artifactName": "RoiTube-${version}.rpm",
+      "icon": "build/icon.svg",
+      "maintainer": "roidev <no-reply@roidev.io>",
+      "desktop": {
+        "Name": "RoiTube",
+        "Comment": "YouTube downloader",
+        "Categories": "AudioVideo;Network;"
+      }
     }
   },
   "keywords": [

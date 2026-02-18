@@ -6,6 +6,17 @@ node_modules/
 dist/
 build/
 
+# Temp files
+tmp/
+
+# Downloaded media files
+*.mp3
+*.mp4
+*.webm
+*.mkv
+*.avi
+*.m4a
+
 # Logs
 *.log
 npm-debug.log*
