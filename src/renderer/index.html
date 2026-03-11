@@ -128,7 +128,17 @@
               <path d="M8 6l10 6-10 6V6z" fill="white"/>
             </svg>
             <h1>RoiTube</h1>
-            <p class="subtitle">Search, paste URL, playlist, or channel</p>
+            <p class="subtitle">Download videos from YouTube, Twitter, TikTok, Instagram & more</p>
+          </div>
+
+          <div class="supported-platforms">
+            <span class="platform-tag">YouTube</span>
+            <span class="platform-tag">Twitter/X</span>
+            <span class="platform-tag">TikTok</span>
+            <span class="platform-tag">Instagram</span>
+            <span class="platform-tag">Facebook</span>
+            <span class="platform-tag">Reddit</span>
+            <span class="platform-tag">+1800 sites</span>
           </div>
 
           <div class="input-wrapper">
@@ -136,7 +146,7 @@
               <circle cx="11" cy="11" r="8"/>
               <line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
-            <input type="text" id="urlInput" placeholder="Search videos or paste URL/playlist/channel..." autocomplete="off" spellcheck="false">
+            <input type="text" id="urlInput" placeholder="Paste video URL (YouTube, Twitter, TikTok, Instagram...)" autocomplete="off" spellcheck="false">
             <div class="url-indicator" id="urlIndicator"></div>
             <button class="btn-icon batch-btn" onclick="openBatchImport()" title="Batch Import">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -548,7 +558,7 @@
       </div>
       <div class="modal-body">
         <p>Paste multiple YouTube URLs (one per line or mixed with text)</p>
-        <textarea id="batchInput" placeholder="https://youtube.com/watch?v=...&#10;https://youtu.be/...&#10;Or paste any text containing YouTube URLs"></textarea>
+        <textarea id="batchInput" placeholder="https://youtube.com/watch?v=...&#10;https://twitter.com/user/status/...&#10;https://tiktok.com/@user/video/...&#10;https://instagram.com/reel/...&#10;Or paste any text containing video URLs"></textarea>
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeBatchModal()">Cancel</button>

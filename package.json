@@ -1,7 +1,7 @@
 {
   "name": "roitube",
-  "version": "2.3.0",
-  "description": "A powerful YouTube downloader by roidev",
+  "version": "2.4.0",
+  "description": "Download videos from YouTube, Twitter, TikTok, Instagram & 1800+ sites",
   "main": "src/main/main.js",
   "author": "roidev <no-reply@roidev.io>",
   "license": "MIT",

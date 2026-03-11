@@ -1,14 +1,31 @@
 # RoiTube Downloader
 
-A beautiful, robust YouTube downloader built with Electron. Download videos and audio with an excellent user experience.
+A beautiful, powerful video downloader built with Electron. Download videos from YouTube, Twitter, TikTok, Instagram, and 1800+ other sites.
+
+## Supported Platforms
+
+- 🎬 **YouTube** - Videos, Shorts, Playlists, Channels
+- 🐦 **Twitter/X** - Video tweets
+- 📱 **TikTok** - Videos (may require cookies)
+- 📸 **Instagram** - Reels, Posts, Stories, IGTV
+- 📘 **Facebook** - Videos, Reels, Watch
+- 🎮 **Twitch** - Clips, VODs
+- 🔴 **Reddit** - Video posts
+- 🎥 **Vimeo** - Videos
+- 🎵 **SoundCloud** - Audio tracks
+- **+1800 more sites** - Powered by yt-dlp
 
 ## Features
 
 - 🎬 **Video Downloads** - Download in multiple quality options (1080p, 720p, 480p, etc.)
 - 🎵 **Audio Downloads** - Extract audio as high-quality MP3 (320kbps)
-- 📊 **Progress Tracking** - Real-time download progress with percentage
+- 📱 **WhatsApp Compatible** - H.264 codec for maximum compatibility
+- 📊 **Progress Tracking** - Real-time download progress with speed & ETA
 - 📁 **Custom Download Location** - Choose where to save your downloads
+- ✂️ **Video Trimming** - Download specific portions of videos
 - 📜 **Download History** - Keep track of all your past downloads
+- ⏰ **Scheduled Downloads** - Schedule downloads for later
+- 🔄 **Batch Downloads** - Download multiple videos at once
 - 🎨 **Modern UI** - Beautiful dark theme with smooth animations
 - 🪟 **Custom Window** - Frameless window with custom title bar
 
@@ -36,9 +53,9 @@ A beautiful, robust YouTube downloader built with Electron. Download videos and 
 ## Tech Stack
 
 - **Electron** - Cross-platform desktop app framework
-- **ytdl-core** - YouTube video download library
-- **fluent-ffmpeg** - Audio conversion for MP3 extraction
-- **ffmpeg-static** - Bundled FFmpeg binary
+- **yt-dlp** - Powerful video download engine (1800+ sites)
+- **ffmpeg-static** - Bundled FFmpeg binary for video/audio processing
+- **Deno** - JavaScript runtime for YouTube decryption
 
 ## Development
 

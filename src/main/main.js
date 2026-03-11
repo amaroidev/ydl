@@ -33,7 +33,7 @@ let clipboardMonitorEnabled = true;
 let cookiesFilePath = ''; // Path to YouTube cookies file
 let customYtdlpArgs = ''; // Custom yt-dlp arguments
 const GITHUB_REPO = 'amaroidev/ydl';
-const CURRENT_VERSION = '2.3.0';
+const CURRENT_VERSION = '2.4.0';
 
 // Default download path
 let downloadPath = path.join(app.getPath('downloads'), 'YouTube Downloads');
@@ -204,24 +204,91 @@ function buildYtdlpArgs(baseArgs = []) {
 }
 
 // Check if URL is a valid YouTube URL
-function isValidYouTubeUrl(url) {
+// Check if URL is a valid video URL (YouTube, Twitter, TikTok, Instagram, etc.)
+function isValidVideoUrl(url) {
   if (!url || typeof url !== 'string') return false;
   const patterns = [
+    // YouTube
     /youtube\.com\/watch\?v=/i,
     /youtu\.be\//i,
     /youtube\.com\/playlist\?list=/i,
     /youtube\.com\/shorts\//i,
     /youtube\.com\/embed\//i,
     /youtube\.com\/@[\w-]+/i,
-    /youtube\.com\/channel\//i
+    /youtube\.com\/channel\//i,
+    // Twitter/X
+    /twitter\.com\/\w+\/status\//i,
+    /x\.com\/\w+\/status\//i,
+    // TikTok
+    /tiktok\.com\/@[\w.-]+\/video\//i,
+    /tiktok\.com\/t\//i,
+    /vm\.tiktok\.com\//i,
+    // Instagram
+    /instagram\.com\/p\//i,
+    /instagram\.com\/reel\//i,
+    /instagram\.com\/reels\//i,
+    /instagram\.com\/tv\//i,
+    /instagram\.com\/stories\//i,
+    // Facebook
+    /facebook\.com\/.*\/videos\//i,
+    /facebook\.com\/watch/i,
+    /fb\.watch\//i,
+    // Reddit
+    /reddit\.com\/r\/.*\/comments\//i,
+    /v\.redd\.it\//i,
+    // Twitch
+    /twitch\.tv\/videos\//i,
+    /twitch\.tv\/\w+\/clip\//i,
+    /clips\.twitch\.tv\//i,
+    // Vimeo
+    /vimeo\.com\/\d+/i,
+    // Dailymotion
+    /dailymotion\.com\/video\//i,
+    // Soundcloud (audio)
+    /soundcloud\.com\//i,
+    // Spotify (some content)
+    /open\.spotify\.com\//i,
+    // Pinterest
+    /pinterest\.com\/pin\//i,
+    // Tumblr
+    /tumblr\.com\/post\//i,
+    // LinkedIn
+    /linkedin\.com\/posts\//i,
+    // Generic - allow any URL (yt-dlp supports 1800+ sites)
+    /^https?:\/\//i
   ];
   return patterns.some(pattern => pattern.test(url));
+}
+
+// Legacy alias for backward compatibility
+function isValidYouTubeUrl(url) {
+  return isValidVideoUrl(url);
 }
 
 // Check if URL is a channel URL
 function isChannelUrl(url) {
   if (!url) return false;
   return /youtube\.com\/@[\w-]+/i.test(url) || /youtube\.com\/channel\//i.test(url);
+}
+
+// Get platform name from URL
+function getPlatformName(url) {
+  if (!url) return 'Video';
+  if (/youtube\.com|youtu\.be/i.test(url)) return 'YouTube';
+  if (/twitter\.com|x\.com/i.test(url)) return 'Twitter/X';
+  if (/tiktok\.com|vm\.tiktok/i.test(url)) return 'TikTok';
+  if (/instagram\.com/i.test(url)) return 'Instagram';
+  if (/facebook\.com|fb\.watch/i.test(url)) return 'Facebook';
+  if (/reddit\.com|redd\.it/i.test(url)) return 'Reddit';
+  if (/twitch\.tv/i.test(url)) return 'Twitch';
+  if (/vimeo\.com/i.test(url)) return 'Vimeo';
+  if (/dailymotion\.com/i.test(url)) return 'Dailymotion';
+  if (/soundcloud\.com/i.test(url)) return 'SoundCloud';
+  if (/spotify\.com/i.test(url)) return 'Spotify';
+  if (/pinterest\.com/i.test(url)) return 'Pinterest';
+  if (/tumblr\.com/i.test(url)) return 'Tumblr';
+  if (/linkedin\.com/i.test(url)) return 'LinkedIn';
+  return 'Video';
 }
 
 // Create system tray
@@ -773,7 +840,8 @@ ipcMain.handle('start-download', async (event, options) => {
     if (type === 'audio') {
       baseArgs.push('-x', '--audio-format', 'mp3', '--audio-quality', '0');
     } else {
-      // Use simpler format string that ensures audio is included
+      // Prefer H.264 (avc1) codec for maximum compatibility (WhatsApp, iOS, etc.)
+      // Use -S to sort and prefer h264, falls back to other codecs
       let formatStr;
       if (format?.quality === '720p') {
         formatStr = 'bestvideo[height<=720]+bestaudio/best[height<=720]';
@@ -784,7 +852,10 @@ ipcMain.handle('start-download', async (event, options) => {
       } else {
         formatStr = 'bestvideo+bestaudio/best';
       }
-      baseArgs.push('-f', formatStr, '--merge-output-format', 'mp4');
+      baseArgs.push('-f', formatStr);
+      // Prefer H.264 codec (most compatible), then re-encode to H.264 if needed
+      baseArgs.push('-S', 'vcodec:h264,acodec:m4a');
+      baseArgs.push('--recode-video', 'mp4');
     }
     
     baseArgs.push(url);
@@ -807,11 +878,13 @@ ipcMain.handle('start-download', async (event, options) => {
       let currentFragment = 0;
       let outputFilePath = '';
       let errorOutput = '';
+      let fullOutput = ''; // Buffer all output for pattern matching
       
       activeDownloads.set(id, { proc, paused: false, options });
       
       proc.stdout.on('data', (data) => {
         const output = data.toString();
+        fullOutput += output;
         console.log('yt-dlp:', output);
         
         // Check for fragment-based download info (HLS/DASH)
@@ -875,10 +948,19 @@ ipcMain.handle('start-download', async (event, options) => {
         const mergeMatch = output.match(/Merging formats into "(.+)"/);
         if (mergeMatch) outputFilePath = mergeMatch[1].trim();
         
-        if (output.includes('has already been downloaded')) {
+        // Capture path from "has already been downloaded" message
+        const alreadyDownloadedMatch = output.match(/\[download\] (.+?) has already been downloaded/);
+        if (alreadyDownloadedMatch) {
+          outputFilePath = alreadyDownloadedMatch[1].trim();
           mainWindow.webContents.send('download-progress', {
             id, progress: 100, status: 'completed', speed: '', eta: ''
           });
+        }
+        
+        // Capture path from VideoConvertor message
+        const videoConvertorMatch = output.match(/\[VideoConvertor\] (?:Not converting media file|Converting video from) "(.+?)"/);
+        if (videoConvertorMatch) {
+          outputFilePath = videoConvertorMatch[1].trim();
         }
       });
       
@@ -890,24 +972,48 @@ ipcMain.handle('start-download', async (event, options) => {
       
       proc.on('close', (code) => {
         console.log('yt-dlp process closed with code:', code);
-        console.log('outputFilePath:', outputFilePath);
+        console.log('outputFilePath before scan:', outputFilePath);
         console.log('lastProgress:', lastProgress);
-        console.log('errorOutput:', errorOutput);
         activeDownloads.delete(id);
         
-        // Find output file - yt-dlp may return code 1 even on success due to warnings
+        // Scan full buffered output for file paths (handles chunked data)
+        if (!outputFilePath) {
+          // Try various patterns to extract the output file path
+          const patterns = [
+            /\[download\] (.+?\.(?:mp4|webm|mkv|mp3|m4a)) has already been downloaded/,
+            /\[Merger\] Merging formats into "(.+?)"/,
+            /\[ExtractAudio\] Destination: (.+)/,
+            /\[VideoConvertor\] (?:Not converting media file|Converting video from) "(.+?)"/,
+            /Destination: (.+?\.(?:mp4|webm|mkv|mp3|m4a|f\d+\.\w+))/
+          ];
+          
+          for (const pattern of patterns) {
+            const match = fullOutput.match(pattern);
+            if (match) {
+              outputFilePath = match[1].trim();
+              console.log('Found file path from pattern:', pattern, '->', outputFilePath);
+              break;
+            }
+          }
+        }
+        
+        // Fallback: Find most recent file in download directory
         if (!outputFilePath) {
           try {
             const files = fs.readdirSync(downloadPath);
             const recentFile = files
+              .filter(f => /\.(mp4|webm|mkv|mp3|m4a)$/i.test(f))
               .map(f => ({ name: f, time: fs.statSync(path.join(downloadPath, f)).mtime }))
               .sort((a, b) => b.time - a.time)[0];
-            // Check if file was created in the last 5 minutes
+            // Check if file was created/modified in the last 5 minutes
             if (recentFile && (Date.now() - recentFile.time.getTime()) < 300000) {
               outputFilePath = path.join(downloadPath, recentFile.name);
+              console.log('Found file from directory scan:', outputFilePath);
             }
           } catch {}
         }
+        
+        console.log('Final outputFilePath:', outputFilePath);
         
         // Check for success: either exit code 0, or we got a file and progress reached near 100%
         const downloadSucceeded = code === 0 || (outputFilePath && lastProgress >= 99) || (outputFilePath && fs.existsSync(outputFilePath));

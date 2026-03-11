@@ -70,7 +70,26 @@ urlInput.addEventListener('input', () => {
   }
   
   inputTimeout = setTimeout(async () => {
-    const isUrl = value.includes('youtube.com') || value.includes('youtu.be');
+    // Check if it looks like a URL (supports multiple platforms)
+    const isUrl = /^https?:\/\//i.test(value) || 
+                  value.includes('youtube.com') || value.includes('youtu.be') ||
+                  value.includes('twitter.com') || value.includes('x.com') ||
+                  value.includes('tiktok.com') || value.includes('instagram.com') ||
+                  value.includes('facebook.com') || value.includes('reddit.com') ||
+                  value.includes('twitch.tv') || value.includes('vimeo.com');
+    
+    // Detect platform for display
+    const getPlatform = (url) => {
+      if (/youtube\.com|youtu\.be/i.test(url)) return 'YouTube';
+      if (/twitter\.com|x\.com/i.test(url)) return 'Twitter/X';
+      if (/tiktok\.com/i.test(url)) return 'TikTok';
+      if (/instagram\.com/i.test(url)) return 'Instagram';
+      if (/facebook\.com|fb\.watch/i.test(url)) return 'Facebook';
+      if (/reddit\.com|redd\.it/i.test(url)) return 'Reddit';
+      if (/twitch\.tv/i.test(url)) return 'Twitch';
+      if (/vimeo\.com/i.test(url)) return 'Vimeo';
+      return 'Video';
+    };
     
     if (isUrl) {
       const isValid = await window.electronAPI.validateUrl(value);
@@ -81,8 +100,10 @@ urlInput.addEventListener('input', () => {
       searchResults.style.display = 'none';
       
       if (isValid) {
-        const isChannel = await window.electronAPI.isChannelUrl(value);
-        const isPlaylist = value.includes('list=') && !value.includes('v=');
+        const platform = getPlatform(value);
+        const isYouTube = platform === 'YouTube';
+        const isChannel = isYouTube && await window.electronAPI.isChannelUrl(value);
+        const isPlaylist = isYouTube && value.includes('list=') && !value.includes('v=');
         
         if (isChannel) {
           selectedVideo = {
@@ -111,11 +132,12 @@ urlInput.addEventListener('input', () => {
           const info = await window.electronAPI.getVideoInfo(value);
           selectedVideo = {
             url: value,
-            title: info.success ? info.title : 'YouTube Video',
-            author: info.success ? info.author : '',
+            title: info.success ? info.title : `${platform} Video`,
+            author: info.success ? info.author : platform,
             thumbnail: info.success ? info.thumbnail : null,
             duration: info.success ? info.duration : 0,
-            durationString: info.success ? info.durationString : ''
+            durationString: info.success ? info.durationString : '',
+            platform: platform
           };
           
           // Show selected video card

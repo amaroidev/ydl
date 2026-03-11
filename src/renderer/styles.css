@@ -280,6 +280,33 @@ body {
   font-size: 15px;
 }
 
+/* Supported Platforms Tags */
+.supported-platforms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+  justify-content: center;
+}
+
+.platform-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  background: rgba(233, 69, 96, 0.15);
+  border: 1px solid rgba(233, 69, 96, 0.3);
+  border-radius: 12px;
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.platform-tag:hover {
+  background: rgba(233, 69, 96, 0.25);
+  border-color: var(--accent);
+}
+
 /* Input */
 .input-wrapper {
   position: relative;
